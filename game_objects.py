@@ -116,13 +116,13 @@ class Char:
 
 class DinoTest:
     def __init__(self):
-        self.screen = pygame.display.set_mode((500, 500))
+        self.screen = pygame.display.set_mode((1200, 900))
 
     def run(self):
         clock = pygame.time.Clock()
         pygame.init()
 
-        sprite_sheet_img = pygame.image.load("test-spritesheet.png")
+        sprite_sheet_img = pygame.image.load("dino-spritesheet.png")
         BG = (50, 50, 50)
         BLACK = (0, 0, 0)
         SCALE = 6
@@ -139,10 +139,14 @@ class DinoTest:
         direction = "right"
         
         FLOOR = 300
-
         y_vel = 0
         grav = 1
         run = True 
+        
+        left_box = pygame.Rect(0,300, 100, 1000)
+        right_box = pygame.Rect(700, 300, 400, 1000)
+        middle_box = pygame.Rect(100, 500, 700, 1000)
+        boxes = [left_box, middle_box, right_box]
 
         while run:
             self.screen.fill(BG)
@@ -151,7 +155,7 @@ class DinoTest:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
-
+            
             key_press = pygame.key.get_pressed()
 
             if key_press[pygame.K_RIGHT]:
@@ -181,12 +185,19 @@ class DinoTest:
                 if dino.y < FLOOR:
                     dino.falling = True
                     dino.y += y_vel
-                    y_vel += 1
+                    y_vel += grav
                 elif dino.y >= FLOOR:
                     dino.falling = False
                     dino.y = FLOOR 
                     y_vel = 0
 
+            
+            # VERY hacky very shaky very not great implementation of landing on surfaces with different heights
+             
+            for box in boxes:
+                pygame.draw.rect(self.screen, "white", box)
+                if dino.x > box.x  + 40 and dino.x < box.x + box.w - 40:
+                    FLOOR = box.y - 180
 
 
 
