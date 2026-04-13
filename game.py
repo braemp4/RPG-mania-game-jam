@@ -5,7 +5,7 @@ import argparse
 def test_sys():
 
     dino_test = DinoTest()
-    dino_test.run()
+    dino_test.run_platformer()
 
 parser = argparse.ArgumentParser()
 
