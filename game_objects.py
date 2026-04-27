@@ -85,6 +85,9 @@ class Char:
         
         self.x, self.y = x, y
 
+        # implicit height 
+        self.implicit_height = y
+
         self.animations = [Animation(name=param[0], row=param[1], start=param[2], steps=param[3], cooldown = param[4], sheet = param[5],char_scale= param[6],bk_color= param[7]) for param in anim_mapper]
 
         self.walk_speed = walk_speed 
@@ -115,9 +118,13 @@ class Char:
         return anim_to_return
 
 
-    def jump(self): 
+    def jump(self, tiles): 
         if self.jumping:
-            self.y -=self.y_vel_up
+            for tile in tiles:
+                tile.y +=self.y_vel_up 
+            
+            self.implicit_height -= self.y_vel_up # dont put it in the for loop!
+            #self.y -=self.y_vel_up
             self.y_vel_up -=self.grav 
 
             if self.y_vel_up <= 0:
@@ -126,15 +133,26 @@ class Char:
                 self.falling = True
                 self.overhead_collision = False
     
-    def fall(self):
+    def fall(self, tiles):
         if self.falling:
 
             self.y_vel_up = 0
 
-            self.y += self.y_vel_down
+            #self.y += self.y_vel_down
+            for tile in tiles:
+                print("Decreasing height of tiles")
+                tile.y -=self.y_vel_down
+
+            self.implicit_height +=self.y_vel_down # dont put it in the for loop
             self.y_vel_down += self.grav
 
-            if self.y >= self.floor:
+
+            #if self.y >= self.floor:
+            if self.implicit_height >= self.floor:
+                # why the bug happened getting stuck in air with new tile height change 
+                    # and also why we actually DONT need implicit height 
+                    # at the bottom of the game loop, we set char.falling = true depending on distance from floor (char.y) so we changed it to use char.implicit_height 
+                    # this could also be acheived with tile.y, but char.implicit_height is a bit safer 
 
                 self.y_vel_up = self.jump_height
 
@@ -142,11 +160,41 @@ class Char:
                 self.y_vel_down = 0
         
 
-    def walk(self, direction, right_collide, left_collide):
+    def walk(self, direction, right_collide, left_collide, tiles):
         if direction == "right" and not right_collide:
-            self.x +=self.walk_speed
+            #self.x +=self.walk_speed
+            for tile in tiles:
+                tile.x -=self.walk_speed
         if direction == "left" and not left_collide:
-            self.x -=self.walk_speed
+            #self.x -=self.walk_speed
+
+            for tile in tiles:
+                tile.x +=self.walk_speed
+
+class TilePrototype:
+    def __init__(self, x, y, dimensions: tuple,):
+        self.x  = x
+        self.y = y 
+        self.surface = pygame.Surface(dimensions)
+
+        self.surface.fill((255, 255, 255))
+
+    def draw(self, screen):
+        screen.blit(self.surface, (self.x, self.y))
+        
+
+
+class MapPrototype: 
+    def __init__(self, tiles):
+        self.tiles = tiles # a list with TilePrototype objects
+    def draw_stuff_in_fov(self, screen, char_pos: tuple, fov: tuple ):
+        for tile in self.tiles:
+#            if ((tile.x < char_pos[0] - fov[0]) and (tile.x > char_pos[0] + fov[0])): 
+            # note this dosn't consider the width or right of the object, just the top left corner
+            if tile.x >= char_pos[0] - fov[0] and tile.x < char_pos[0] + fov[0]:
+                tile.draw(screen)
+
+
 
 
 class DinoTest:
@@ -168,7 +216,7 @@ class DinoTest:
         sprite_sheet = SpriteSheet(sheet_img=sprite_sheet_img, w=24, h=24)
         anim_params = [("idle", 0, 0, 4, 150, sprite_sheet, 9, BLACK), ("walk", 0, 3, 10, 50, sprite_sheet, 9, BLACK)]
 
-        dino = Char(screen=self.screen, x=200, y=0, anim_mapper=anim_params, walk_speed=5, floor=400)
+        dino = Char(screen=self.screen, x=200, y=400, anim_mapper=anim_params, walk_speed=5, floor=400)
         
         # for testing gravity
         dino.falling = True
@@ -178,12 +226,15 @@ class DinoTest:
         
         run = True 
         
-        surf_test = pygame.Surface((400, 100)) 
-        surf_test.fill(WHITE)
-        surf_mask = pygame.mask.from_surface(surf_test)
+#        surf_test = pygame.Surface((400, 100)) 
+#        surf_test.fill(WHITE)
+#        surf_mask = pygame.mask.from_surface(surf_test)
         
         left_collide = False
         right_collide = False
+        
+        tiles = [TilePrototype(i, 300, (50, 50) )for i in range(0,2000, 400)]
+        tile_map = MapPrototype(tiles=tiles)
 
         while run:
             self.screen.fill(BG)
@@ -199,11 +250,11 @@ class DinoTest:
             old_anim = anim # for printing current animation
 
             if key_press[pygame.K_RIGHT]:
-                dino.walk("right", right_collide, left_collide)
+                dino.walk("right", right_collide, left_collide, tiles)
                 direction = "right"
                 anim = "walk"
             elif key_press[pygame.K_LEFT]:
-                dino.walk("left", right_collide, left_collide)
+                dino.walk("left", right_collide, left_collide, tiles)
                 direction = "left"
                 anim = "walk"
             else:
@@ -218,24 +269,26 @@ class DinoTest:
             
             if key_press[pygame.K_LALT]:
 
-                dino = Char(screen=self.screen, x=200, y=0, anim_mapper=anim_params, walk_speed=5, floor=400)
+                dino = Char(screen=self.screen, x=200, y=400, anim_mapper=anim_params, walk_speed=5, floor=400)
            
             
             # Jumping and falling
             if dino.jumping and not dino.falling:
-                dino.jump()
+                dino.jump(tiles)
 
             elif not dino.jumping:
-                if dino.y < dino.floor:
+                if dino.implicit_height< dino.floor:
                     dino.falling = True
-                elif dino.y >= dino.floor:
+                elif dino.implicit_height >= dino.floor:
                     dino.falling = False
 
             if dino.falling:
-                dino.fall()
+                dino.fall(tiles)
             
-                        
-            self.screen.blit(surf_test, (500, 400))
+             
+#            self.screen.blit(surf_test, (500, 400)) # for collision test
+
+            tile_map.draw_stuff_in_fov(self.screen, char_pos=(dino.x, dino.y), fov=(1000, 1000)) # for tile map test
 
             # animate dino
             dino.get_anim(anim).animate()
@@ -248,6 +301,8 @@ class DinoTest:
 #            self.screen.blit(mask_debug_img)
 
  
+            '''
+            # all for collision testing
             dino_overlap = dino_mask.overlap(surf_mask, (500 - dino.x, 400 - dino.y))
 
             if dino_overlap: 
@@ -274,6 +329,7 @@ class DinoTest:
                 right_collide = False
                 left_collide = False
                 dino.floor=400
+            '''
           
 
             pygame.display.update()
