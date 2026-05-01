@@ -1,5 +1,5 @@
 import pygame 
-
+import random
 
 class SpriteSheet:
     def __init__(self, sheet_img, w, h):
@@ -140,7 +140,6 @@ class Char:
 
             #self.y += self.y_vel_down
             for tile in tiles:
-                print("Decreasing height of tiles")
                 tile.y -=self.y_vel_down
 
             self.implicit_height +=self.y_vel_down # dont put it in the for loop
@@ -178,6 +177,7 @@ class TilePrototype:
         self.surface = pygame.Surface(dimensions)
 
         self.surface.fill((255, 255, 255))
+        self.mask = pygame.mask.from_surface(self.surface)
 
     def draw(self, screen):
         screen.blit(self.surface, (self.x, self.y))
@@ -233,7 +233,7 @@ class DinoTest:
         left_collide = False
         right_collide = False
         
-        tiles = [TilePrototype(i, 300, (50, 50) )for i in range(0,2000, 400)]
+        tiles = [TilePrototype(i + random.randint(-20, 20), 300 + random.randint(-20, 20), (50 + random.randint(0, 20), 50 + random.randint(0, 30)) )for i in range(0,2000, 400)]
         tile_map = MapPrototype(tiles=tiles)
 
         while run:
@@ -270,8 +270,7 @@ class DinoTest:
             if key_press[pygame.K_LALT]:
 
                 dino = Char(screen=self.screen, x=200, y=400, anim_mapper=anim_params, walk_speed=5, floor=400)
-           
-            
+                       
             # Jumping and falling
             if dino.jumping and not dino.falling:
                 dino.jump(tiles)
@@ -299,8 +298,33 @@ class DinoTest:
 
 #            mask_debug_img = dino_mask.to_surface()
 #            self.screen.blit(mask_debug_img)
+            
+            for tile in tiles:
+                overlap = dino_mask.overlap(tile.mask, (tile.x -dino.x, tile.y - dino.y)) 
+                if overlap:
+                    print(overlap)
+                    tile.surface.fill(GREEN)
 
- 
+                    if overlap[1] >=70:
+                        # not sure how to fix lol                                                
+                        if not dino.jumping:
+                            dino.y_vel_down = -1
+                        else:
+                            dino.y_vel_down = 0
+                        
+                        dino.floor = tile.y
+
+                        
+                    elif overlap[1] <  70: # must pick a good value here! 
+                        dino.y_vel_up = -1 * dino.jump_height -1
+
+  
+                else:
+                    tile.surface.fill(WHITE)
+                    right_collide = False
+                    left_collide = False
+                    dino.floor=400
+
             '''
             # all for collision testing
             dino_overlap = dino_mask.overlap(surf_mask, (500 - dino.x, 400 - dino.y))
@@ -326,12 +350,13 @@ class DinoTest:
 
             else:
                 surf_test.fill(WHITE)
+                dino.falling = True
                 right_collide = False
                 left_collide = False
                 dino.floor=400
             '''
           
-
+            print(dino.implicit_height)
             pygame.display.update()
 
 
